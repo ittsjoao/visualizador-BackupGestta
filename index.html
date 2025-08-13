@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <title>Visualizador de Backup (CSV → Chat)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #161a22;
+        --panel-2: #1b2130;
+        --text: #e8eaf1;
+        --muted: #99a3b3;
+        --accent: #7aa2f7;
+        --bubble-me: #2b3344;
+        --bubble-other: #212836;
+        --border: #263042;
+        --chip: #22304a;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Poppins, system-ui, Segoe UI, Roboto, Arial;
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .sidebar {
+        width: 320px;
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
+      .sidebar header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .sidebar header h1 {
+        font-size: 16px;
+        margin: 0;
+        font-weight: 600;
+      }
+      .controls {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .controls input[type="file"] {
+        width: 100%;
+      }
+      .controls .search {
+        display: flex;
+        gap: 8px;
+      }
+      .controls .search input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+        border-radius: 8px;
+        outline: none;
+      }
+      .groups {
+        overflow: auto;
+        padding: 8px;
+      }
+      .group-item {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .group-item:hover {
+        background: var(--panel-2);
+      }
+      .group-item.active {
+        border-color: var(--accent);
+        background: linear-gradient(
+          180deg,
+          rgba(122, 162, 247, 0.08),
+          transparent
+        );
+      }
+      .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--chip);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #cfe1ff;
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 0.2px;
+      }
+      .meta {
+        flex: 1;
+        min-width: 0;
+      }
+      .meta .name {
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .meta .sub {
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-header {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      .chip {
+        font-size: 12px;
+        color: #cfe1ff;
+        background: var(--chip);
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+      }
+      .chat {
+        flex: 1;
+        overflow: auto;
+        padding: 16px;
+        background: radial-gradient(
+          1200px 1200px at 20% -10%,
+          #131827 0%,
+          var(--bg) 60%
+        );
+      }
+      .msg {
+        max-width: 70%;
+        margin: 6px 0;
+        padding: 10px 12px;
+        border-radius: 14px;
+        line-height: 1.35;
+        position: relative;
+        border: 1px solid var(--border);
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        word-break: break-word;
+      }
+      .me {
+        margin-left: auto;
+        background: var(--bubble-me);
+      }
+      .other {
+        background: var(--bubble-other);
+      }
+      .msg .author {
+        font-weight: 600;
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #d6dcff;
+      }
+      .msg .time {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+        text-align: right;
+      }
+      .day-divider {
+        text-align: center;
+        margin: 18px 0;
+        position: relative;
+      }
+      .day-divider span {
+        display: inline-block;
+        padding: 6px 10px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .toolbar {
+        border-top: 1px solid var(--border);
+        background: var(--panel);
+        padding: 10px;
+        display: flex;
+        gap: 10px;
+      }
+      .toolbar input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+        border-radius: 8px;
+        outline: none;
+      }
+      .empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 32px;
+      }
+      .footer {
+        font-size: 11px;
+        color: var(--muted);
+        padding: 8px 12px;
+        border-top: 1px solid var(--border);
+      }
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+      }
+      @media (max-width: 900px) {
+        .sidebar {
+          width: 260px;
+        }
+        .msg {
+          max-width: 85%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <header>
+        <div class="avatar">CSV</div>
+        <h1>Visualizador de Mensagens</h1>
+      </header>
+
+      <div class="controls">
+        <input id="fileInput" type="file" accept=".csv,.txt" />
+        <div class="row">
+          <button id="loadBtn">Carregar CSV</button>
+          <button id="clearBtn" style="background: #394258">Limpar</button>
+        </div>
+        <div class="search">
+          <input
+            id="searchBox"
+            type="search"
+            placeholder="Buscar mensagens..."
+          />
+        </div>
+      </div>
+
+      <div id="groups" class="groups"></div>
+      <div class="footer">
+        Esperado cabeçalho: <b>NumeroGrupo;Contato;Autor;Data;Mensagem</b>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="chat-header">
+        <div class="avatar" id="chatAvatar">—</div>
+        <div>
+          <div id="chatTitle" style="font-weight: 600">Nenhum grupo</div>
+          <div
+            id="chatSubtitle"
+            class="muted"
+            style="font-size: 12px; color: var(--muted)"
+          >
+            Carregue um CSV para começar
+          </div>
+        </div>
+        <div style="margin-left: auto" class="chip" id="msgCount">
+          0 mensagens
+        </div>
+      </div>
+      <div id="chat" class="chat">
+        <div class="empty">Sem dados. Carregue um CSV para visualizar.</div>
+      </div>
+      <div class="toolbar">
+        <input id="filterAuthor" placeholder="Filtrar por autor (opcional)" />
+        <input
+          id="filterContact"
+          placeholder="Filtrar por contato (opcional)"
+        />
+        <button id="applyFilters">Aplicar</button>
+      </div>
+    </main>
+
+    <script>
+      // -------- Utilidades --------
+      const byId = (id) => document.getElementById(id);
+      const state = {
+        rawRows: [],
+        groups: new Map(), // NumeroGrupo -> rows
+        order: [], // lista de NumeroGrupo
+        activeGroup: null,
+        searchTerm: "",
+        filters: { author: "", contact: "" },
+      };
+
+      function hashColor(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++)
+          h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+        const n = Math.abs(h % 360);
+        return `hsl(${n} 45% 28%)`;
+      }
+
+      function initials(s) {
+        return (
+          (s || "")
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((x) => x[0]?.toUpperCase() || "")
+            .join("") || "—"
+        );
+      }
+
+      // Tenta parsear datas comuns (ISO, dd/mm/aaaa hh:mm, dd-mm-aaaa, etc.)
+      function parseDateMaybe(s) {
+        if (!s) return null;
+        // Normaliza separadores
+        const t = s.trim();
+        // dd/mm/aaaa hh:mm[:ss]
+        const m1 = t.match(
+          /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+        );
+        if (m1) {
+          let [_, d, mo, y, hh = "0", mm = "0", ss = "0"] = m1;
+          if (y.length === 2) y = Number(y) < 70 ? "20" + y : "19" + y;
+          const dt = new Date(
+            Number(y),
+            Number(mo) - 1,
+            Number(d),
+            Number(hh),
+            Number(mm),
+            Number(ss)
+          );
+          return isNaN(dt) ? null : dt;
+        }
+        // ISO direto
+        const iso = new Date(t);
+        return isNaN(iso) ? null : iso;
+      }
+
+      function formatDay(d) {
+        return d.toLocaleDateString("pt-BR", {
+          weekday: "short",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        });
+      }
+      function formatTime(d) {
+        return d.toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      // -------- Parser CSV (suporta ; e aspas) --------
+      function parseCSV(text, delimiter = ";") {
+        const rows = [];
+        let i = 0,
+          field = "",
+          row = [],
+          inQuotes = false;
+        while (i < text.length) {
+          const c = text[i];
+          if (inQuotes) {
+            if (c === '"') {
+              if (text[i + 1] === '"') {
+                field += '"';
+                i += 2;
+                continue;
+              } // aspas escapada
+              inQuotes = false;
+              i++;
+              continue;
+            } else {
+              field += c;
+              i++;
+              continue;
+            }
+          } else {
+            if (c === '"') {
+              inQuotes = true;
+              i++;
+              continue;
+            }
+            if (c === delimiter) {
+              row.push(field);
+              field = "";
+              i++;
+              continue;
+            }
+            if (c === "\n") {
+              row.push(field);
+              field = "";
+              if (row.length > 1 || row[0] !== "") rows.push(row);
+              row = [];
+              i++;
+              continue;
+            }
+            if (c === "\r") {
+              i++;
+              continue;
+            } // ignora CR
+            field += c;
+            i++;
+            continue;
+          }
+        }
+        // último campo/linha
+        row.push(field);
+        if (row.length > 1 || row[0] !== "") rows.push(row);
+        return rows;
+      }
+
+      // -------- Carregamento e Indexação --------
+      function buildIndex(rows) {
+        state.groups.clear();
+        state.order.length = 0;
+        // Espera cabeçalho: NumeroGrupo;Contato;Autor;Data;Mensagem
+        const header = rows[0].map((h) => h.trim().toLowerCase());
+        const mapIdx = (name) => header.indexOf(name);
+        const idx = {
+          numeroGrupo: mapIdx("numerogrupo"),
+          contato: mapIdx("contato"),
+          autor: mapIdx("autor"),
+          data: mapIdx("data"),
+          mensagem: mapIdx("mensagem"),
+        };
+        // Validação básica
+        if (Object.values(idx).some((v) => v < 0)) {
+          alert("Cabeçalho esperado: NumeroGrupo;Contato;Autor;Data;Mensagem");
+          return;
+        }
+        const body = rows.slice(1);
+        const norm = body
+          .map((r) => {
+            const g = (r[idx.numeroGrupo] || "").trim();
+            const contato = (r[idx.contato] || "").trim();
+            const autor = (r[idx.autor] || "").trim();
+            const dataRaw = (r[idx.data] || "").trim();
+            const dt = parseDateMaybe(dataRaw);
+            const msg = (r[idx.mensagem] || "").replace(/\r/g, "");
+            return { g, contato, autor, dt, dataRaw, msg };
+          })
+          .filter((x) => x.g);
+
+        // Agrupa por NumeroGrupo
+        for (const item of norm) {
+          if (!state.groups.has(item.g)) state.groups.set(item.g, []);
+          state.groups.get(item.g).push(item);
+        }
+        // Ordena grupos por nome
+        state.order = Array.from(state.groups.keys()).sort((a, b) =>
+          a.localeCompare(b, "pt-BR")
+        );
+        // Ordena mensagens por data (quando possível)
+        for (const g of state.order) {
+          state.groups.get(g).sort((a, b) => {
+            if (a.dt && b.dt) return a.dt - b.dt;
+            if (a.dt) return -1;
+            if (b.dt) return 1;
+            return 0;
+          });
+        }
+        // Define grupo ativo
+        state.activeGroup = state.order[0] || null;
+        renderGroups();
+        renderChat();
+      }
+
+      // -------- Renderização --------
+      function renderGroups() {
+        const el = byId("groups");
+        el.innerHTML = "";
+
+        const search = state.searchTerm; // já está lowercase
+        const filteredGroups = state.order.filter((g) => {
+          const messages = state.groups.get(g) || [];
+          // Coletar todos os contatos do grupo
+          const contatos = new Set(messages.map((m) => m.contato || ""));
+          // Se não há termo de busca, mantém
+          if (!search) return true;
+          // Verifica se algum contato ou o próprio nome do grupo contém o termo
+          return (
+            g.toLowerCase().includes(search) ||
+            Array.from(contatos).some((c) => c.toLowerCase().includes(search))
+          );
+        });
+
+        for (const g of filteredGroups) {
+          const messages = state.groups.get(g) || [];
+          const contatos = new Set(
+            messages.map((m) => m.contato || "(sem contato)")
+          );
+          const sub = `${contatos.size} contato${
+            contatos.size === 1 ? "" : "s"
+          } • ${messages.length} msg${messages.length === 1 ? "" : "s"}`;
+
+          const item = document.createElement("div");
+          item.className =
+            "group-item" + (g === state.activeGroup ? " active" : "");
+          item.onclick = () => {
+            state.activeGroup = g;
+            renderGroups();
+            renderChat();
+          };
+
+          const av = document.createElement("div");
+          av.className = "avatar";
+          av.style.background = hashColor(g);
+          av.textContent = initials(g);
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          const name = document.createElement("div");
+          name.className = "name";
+          name.textContent = g || "Sem autor";
+          const subEl = document.createElement("div");
+          subEl.className = "sub";
+          subEl.textContent = sub;
+
+          meta.appendChild(name);
+          meta.appendChild(subEl);
+          item.appendChild(av);
+          item.appendChild(meta);
+          el.appendChild(item);
+        }
+      }
+
+      function messageMatchesFilters(m) {
+        if (
+          state.filters.author &&
+          !m.autor.toLowerCase().includes(state.filters.author)
+        )
+          return false;
+        if (
+          state.filters.contact &&
+          !m.contato.toLowerCase().includes(state.filters.contact)
+        )
+          return false;
+        if (state.searchTerm) {
+          const q = state.searchTerm;
+          const hay =
+            (m.msg || "") + " " + (m.autor || "") + " " + (m.contato || "");
+          if (!hay.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      }
+
+      function renderChat() {
+        const chat = byId("chat");
+        const title = byId("chatTitle");
+        const subtitle = byId("chatSubtitle");
+        const av = byId("chatAvatar");
+        const counter = byId("msgCount");
+
+        if (!state.activeGroup) {
+          chat.innerHTML =
+            '<div class="empty">Selecione um grupo à esquerda.</div>';
+          title.textContent = "Nenhum grupo";
+          subtitle.textContent = "—";
+          av.textContent = "—";
+          counter.textContent = "0 mensagens";
+          return;
+        }
+
+        const items = (state.groups.get(state.activeGroup) || []).filter(
+          messageMatchesFilters
+        );
+        title.textContent = state.activeGroup;
+        subtitle.textContent = `${
+          new Set(items.map((i) => i.contato)).size
+        } contatos • filtrado`;
+        av.textContent = initials(state.activeGroup);
+        av.style.background = hashColor(state.activeGroup);
+        counter.textContent = `${items.length} mensagem${
+          items.length === 1 ? "" : "s"
+        }`;
+
+        chat.innerHTML = "";
+        let lastDay = null;
+        for (const m of items) {
+          const d = m.dt;
+          if (d) {
+            const dayKey =
+              d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+            if (dayKey !== lastDay) {
+              const div = document.createElement("div");
+              div.className = "day-divider";
+              const span = document.createElement("span");
+              span.textContent = formatDay(d);
+              div.appendChild(span);
+              chat.appendChild(div);
+              lastDay = dayKey;
+            }
+          }
+
+          const wrap = document.createElement("div");
+          const isMe = false; // Se quiser marcar "meu" autor, troca lógica aqui.
+          wrap.className = "msg " + (isMe ? "me" : "other");
+
+          if (m.autor) {
+            const au = document.createElement("div");
+            au.className = "author";
+            au.textContent = m.autor + (m.contato ? ` · ${m.contato}` : "");
+            wrap.appendChild(au);
+          }
+
+          const body = document.createElement("div");
+          body.textContent = m.msg || "";
+          wrap.appendChild(body);
+
+          const tm = document.createElement("div");
+          tm.className = "time";
+          tm.textContent = m.dt ? `${formatTime(m.dt)}` : m.dataRaw || "";
+          wrap.appendChild(tm);
+
+          chat.appendChild(wrap);
+        }
+
+        if (items.length === 0) {
+          chat.innerHTML =
+            '<div class="empty">Nenhuma mensagem atende aos filtros/pesquisa.</div>';
+        }
+
+        // scroll pro fim
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      // -------- Eventos --------
+      byId("loadBtn").onclick = () => {
+        const f = byId("fileInput").files?.[0];
+        if (!f) {
+          alert("Selecione um arquivo CSV/TXT.");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const rows = parseCSV(text, ";");
+          state.rawRows = rows;
+          buildIndex(rows);
+        };
+        reader.readAsText(f, "utf-8");
+      };
+
+      byId("clearBtn").onclick = () => {
+        byId("fileInput").value = "";
+        state.rawRows = [];
+        state.groups.clear();
+        state.order.length = 0;
+        state.activeGroup = null;
+        byId("groups").innerHTML = "";
+        byId("chat").innerHTML =
+          '<div class="empty">Limpou os dados carregados.</div>';
+        byId("chatTitle").textContent = "Nenhum grupo";
+        byId("chatSubtitle").textContent = "—";
+        byId("chatAvatar").textContent = "—";
+        byId("msgCount").textContent = "0 mensagens";
+        byId("searchBox").value = "";
+        state.searchTerm = "";
+        byId("filterAuthor").value = "";
+        byId("filterContact").value = "";
+        state.filters = { author: "", contact: "" };
+      };
+
+      byId("searchBox").addEventListener("input", (e) => {
+        state.searchTerm = (e.target.value || "").trim().toLowerCase();
+        renderGroups(); // agora filtra os grupos
+      });
+
+      byId("applyFilters").onclick = () => {
+        state.filters.author = (byId("filterAuthor").value || "")
+          .trim()
+          .toLowerCase();
+        state.filters.contact = (byId("filterContact").value || "")
+          .trim()
+          .toLowerCase();
+        renderChat();
+      };
+
+      document.addEventListener("dragover", (e) => {
+        e.preventDefault();
+      });
+      document.addEventListener("drop", (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length) {
+          byId("fileInput").files = e.dataTransfer.files;
+          byId("loadBtn").click();
+        }
+      });
+    </script>
+  </body>
+</html>
