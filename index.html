@@ -305,14 +305,14 @@
       <div id="chat" class="chat">
         <div class="empty">Sem dados. Carregue um CSV para visualizar.</div>
       </div>
-      <div class="toolbar">
+      <!-- <div class="toolbar">
         <input id="filterAuthor" placeholder="Filtrar por autor (opcional)" />
         <input
           id="filterContact"
           placeholder="Filtrar por contato (opcional)"
         />
         <button id="applyFilters">Aplicar</button>
-      </div>
+      </div> -->
     </main>
 
     <script>
@@ -508,17 +508,13 @@
         const el = byId("groups");
         el.innerHTML = "";
 
-        const search = state.searchTerm; // já está lowercase
+        const search = state.searchTerm;
         const filteredGroups = state.order.filter((g) => {
           const messages = state.groups.get(g) || [];
-          // Coletar todos os contatos do grupo
           const contatos = new Set(messages.map((m) => m.contato || ""));
-          // Se não há termo de busca, mantém
           if (!search) return true;
-          // Verifica se algum contato ou o próprio nome do grupo contém o termo
-          return (
-            g.toLowerCase().includes(search) ||
-            Array.from(contatos).some((c) => c.toLowerCase().includes(search))
+          return Array.from(contatos).some((c) =>
+            c.toLowerCase().includes(search)
           );
         });
 
@@ -527,6 +523,10 @@
           const contatos = new Set(
             messages.map((m) => m.contato || "(sem contato)")
           );
+
+          // Aqui escolhe o contato para exibir no "name"
+          const contatoDisplay = [...contatos][0] || "(sem contato)";
+
           const sub = `${contatos.size} contato${
             contatos.size === 1 ? "" : "s"
           } • ${messages.length} msg${messages.length === 1 ? "" : "s"}`;
@@ -542,13 +542,16 @@
 
           const av = document.createElement("div");
           av.className = "avatar";
-          av.style.background = hashColor(g);
-          av.textContent = initials(g);
+          av.style.background = hashColor(contatoDisplay);
+          av.textContent = initials(contatoDisplay);
+
           const meta = document.createElement("div");
           meta.className = "meta";
+
           const name = document.createElement("div");
           name.className = "name";
-          name.textContent = g || "Sem autor";
+          name.textContent = contatoDisplay; // << agora exibe o contato
+
           const subEl = document.createElement("div");
           subEl.className = "sub";
           subEl.textContent = sub;
@@ -636,7 +639,8 @@
           if (m.autor) {
             const au = document.createElement("div");
             au.className = "author";
-            au.textContent = m.autor + (m.contato ? ` · ${m.contato}` : "");
+            //caso queira destacar quem é o contato na frente do autor por mensagem, insira: + (m.contato ? ` · ${m.contato}` : "")
+            au.textContent = m.autor;
             wrap.appendChild(au);
           }
 
